@@ -189,7 +189,7 @@
     </div>
     <div class="card wide">
       <p class="chart-title">อุณหภูมิ</p>
-      <p class="chart-sub">Passive ใช้ค่าที่ร้อนกว่าระหว่าง R1 กับ R2 · บัซเซอร์ดังเมื่อเกิน 60°C</p>
+      <p class="chart-sub">Passive แนบตัวต้านทาน · Active แนบบอร์ด · บัซเซอร์ดังเมื่อเกิน 60°C</p>
       <div class="legend" id="lg-temp"></div>
       <div class="chart" id="ch-temp"></div>
     </div>
@@ -598,7 +598,7 @@ const charts = [
     legendId: "lg-temp", aria: "อุณหภูมิทั้งสองฝั่งเทียบกับเวลา", unit: "°C",
     decimals: 1, tickDecimals: 0, endDecimals: 1, minSpan: 10, defaultRange: [20, 40], height: 200,
     series: [
-      { label: "Passive (R1/R2)", short: "Passive", color: "--side-p", get: (r) => tempOrNull(r.Tp) },
+      { label: "Passive (ตัวต้านทาน)", short: "Passive", color: "--side-p", get: (r) => tempOrNull(r.Tp) },
       { label: "Active (บอร์ด)",  short: "Active",  color: "--side-a", get: (r) => tempOrNull(r.Ta) },
     ],
   }),
