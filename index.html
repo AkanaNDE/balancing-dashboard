@@ -261,7 +261,6 @@ function newSession() {
   sideState = { PASSIVE: "idle", ACTIVE: "idle" };
   remindAt = { PASSIVE: -1, ACTIVE: -1 };
   lastWarnWall = 0;
-  $("log").textContent = "";
   scheduleRender();
 }
 
@@ -710,53 +709,83 @@ async function connect() {
   }
   const info = port.getInfo();
   addEvent(`[เชื่อมต่อ] เลือกพอร์ตแล้ว (VID ${info.usbVendorId?.toString(16) ?? "?"} PID ${info.usbProductId?.toString(16) ?? "?"}) กำลังเปิดที่ 9600…`);
-  try {
-    await port.open({ baudRate: 9600 });
-  } catch (e) {
-    addEvent(`[เชื่อมต่อ] เปิดพอร์ตไม่ได้: ${e.name}: ${e.message}`, "warn");
-    addEvent("[เชื่อมต่อ] ถ้าพอร์ตถูกใช้อยู่ ให้ปิด Serial Monitor ใน VS Code หรือแท็บแดชบอร์ดอื่น แล้วถอดเสียบ USB ใหม่", "warn");
-    port = null;
-    return;
-  }
-  addEvent("[เชื่อมต่อ] เปิดพอร์ตสำเร็จ รอข้อมูลจาก Nano…", "done");
-  setPill(true, "เชื่อมต่อแล้ว");
-  $("btnConnect").textContent = "ตัดการเชื่อมต่อ";
-  readLoop();
+  userStop = false;
+  retries = 0;
+  runPort();
 }
 
-async function readLoop() {
-  const decoder = new TextDecoderStream();
-  readDone = port.readable.pipeTo(decoder.writable).catch(() => {});
-  reader = decoder.readable.getReader();
+// Chrome บางเครื่อง (เจอบน Linux) เปิดพอร์ตได้แต่หลุดทันทีด้วย "The device has been lost"
+// จึงต่อใหม่ให้เองกับพอร์ตเดิม (ไม่ต้องเลือกพอร์ตซ้ำ) และถ้าหลุดซ้ำเกินกำหนดค่อยหยุดแล้วบอกทางออก
+let userStop = false, retries = 0, gotData = false;
+const MAX_RETRIES = 5;
+const OPEN_OPTS = { baudRate: 9600, dataBits: 8, stopBits: 1, parity: "none", flowControl: "none", bufferSize: 4096 };
+
+async function runPort() {
+  while (port && !userStop) {
+    try {
+      await port.open(OPEN_OPTS);
+    } catch (e) {
+      addEvent(`[เชื่อมต่อ] เปิดพอร์ตไม่ได้: ${e.name}: ${e.message}`, "warn");
+      addEvent("[เชื่อมต่อ] ถ้าพอร์ตถูกใช้อยู่ ให้ปิด Serial Monitor ใน VS Code หรือแท็บแดชบอร์ดอื่น แล้วถอดเสียบ USB ใหม่", "warn");
+      break;
+    }
+    addEvent("[เชื่อมต่อ] เปิดพอร์ตสำเร็จ รอข้อมูลจาก Nano…", "done");
+    setPill(true, "เชื่อมต่อแล้ว");
+    $("btnConnect").textContent = "ตัดการเชื่อมต่อ";
+
+    gotData = false;
+    const err = await readOnce();
+    try { await port.close(); } catch {}
+    if (userStop) break;
+
+    if (gotData) retries = 0;          // เคยได้ข้อมูลจริง ถือว่าเป็นการหลุดครั้งใหม่
+    retries++;
+    if (retries > MAX_RETRIES) {
+      addEvent(`[เชื่อมต่อ] หลุดซ้ำ ${MAX_RETRIES} ครั้ง จึงหยุดลองใหม่ (${err})`, "warn");
+      addEvent("[เชื่อมต่อ] เบราว์เซอร์นี้อ่านพอร์ตของเครื่องนี้ไม่ได้ — ลองเครื่อง/เบราว์เซอร์อื่น หรือรัน bridge.py (ดูคำอธิบายด้านล่างหน้า)", "warn");
+      break;
+    }
+    addEvent(`[เชื่อมต่อ] การเชื่อมต่อขาด: ${err} — ต่อใหม่ครั้งที่ ${retries}/${MAX_RETRIES}`, "warn");
+    setPill(false, "กำลังต่อใหม่…");
+    await new Promise((r) => setTimeout(r, 700 * retries));
+  }
+  port = null; reader = null;
+  setPill(false, "ยังไม่เชื่อมต่อ");
+  $("btnConnect").textContent = "เชื่อมต่อ Arduino";
+}
+
+// อ่านตรงจาก port.readable (ไม่ผ่าน TextDecoderStream) จนกว่าจะหลุดหรือผู้ใช้กดตัดการเชื่อมต่อ
+async function readOnce() {
+  const dec = new TextDecoder();
+  reader = port.readable.getReader();
   let buf = "";
   const startRows = rows.length;
-  setTimeout(() => {
-    if (port && rows.length === startRows) addEvent("[เชื่อมต่อ] เปิดพอร์ตได้แต่ 6 วินาทียังไม่มีข้อมูล — กดปุ่ม RESET บน Nano หรือเช็กว่าเลือกพอร์ตถูกตัว", "warn");
+  const warnTimer = setTimeout(() => {
+    if (port && !userStop && rows.length === startRows)
+      addEvent("[เชื่อมต่อ] เปิดพอร์ตได้แต่ 6 วินาทียังไม่มีข้อมูล — กดปุ่ม RESET บน Nano หรือเช็กว่าเลือกพอร์ตถูกตัว", "warn");
   }, 6000);
+  let err = "อ่านจบ";
   try {
     while (true) {
       const { value, done } = await reader.read();
       if (done) break;
-      buf += value;
+      gotData = true;
+      buf += dec.decode(value, { stream: true });
       let i;
       while ((i = buf.indexOf("\n")) >= 0) { handleLine(buf.slice(0, i)); buf = buf.slice(i + 1); }
     }
   } catch (e) {
-    addEvent("การเชื่อมต่อขาด: " + e.message, "warn");
+    err = e.message || e.name;
+  } finally {
+    clearTimeout(warnTimer);
+    try { reader.releaseLock(); } catch {}
   }
-  await cleanupPort();
+  return err;
 }
 
 async function disconnect() {
+  userStop = true;
   try { await reader?.cancel(); } catch {}
-}
-async function cleanupPort() {
-  try { reader?.releaseLock(); } catch {}
-  try { await readDone; } catch {}
-  try { await port?.close(); } catch {}
-  port = null; reader = null;
-  setPill(false, "ยังไม่เชื่อมต่อ");
-  $("btnConnect").textContent = "เชื่อมต่อ Arduino";
 }
 
 if ("serial" in navigator) {
@@ -875,7 +904,7 @@ buildSideCard("PASSIVE");
 buildSideCard("ACTIVE");
 $("btnConnect").onclick = connect;
 $("btnDemo").onclick = startDemo;
-$("btnClear").onclick = () => { if (!rows.length || confirm("ล้างข้อมูลทั้งหมดบนหน้าจอ?")) newSession(); };
+$("btnClear").onclick = () => { if (!rows.length || confirm("ล้างข้อมูลทั้งหมดบนหน้าจอ?")) { newSession(); $("log").textContent = ""; } };
 $("btnCsv").onclick = downloadCsv;
 renderAll();
 detectBridge();
