@@ -1,0 +1,884 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Balancing Dashboard</title>
+<style>
+  :root{
+    color-scheme: light;
+    --page:#f9f9f7; --surface:#fcfcfb; --ink:#0b0b0b; --ink2:#52514e; --muted:#898781;
+    --grid:#e1e0d9; --axis:#c3c2b7; --border:rgba(11,11,11,.10); --wash:rgba(11,11,11,.04);
+    --c1:#2a78d6; --c2:#eb6834; --c3:#1baf7a;
+    --side-p:#4a3aa7; --side-a:#e87ba4;
+    --good:#0ca30c; --good-text:#006300; --critical:#d03b3b; --warning:#fab219;
+    --alert-bg:#fbeaea;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      color-scheme: dark;
+      --page:#0d0d0d; --surface:#1a1a19; --ink:#ffffff; --ink2:#c3c2b7; --muted:#898781;
+      --grid:#2c2c2a; --axis:#383835; --border:rgba(255,255,255,.10); --wash:rgba(255,255,255,.05);
+      --c1:#3987e5; --c2:#d95926; --c3:#199e70;
+      --side-p:#9085e9; --side-a:#d55181;
+      --good-text:#0ca30c; --alert-bg:#3a1c1c;
+    }
+  }
+  :root[data-theme="dark"]{
+    color-scheme: dark;
+    --page:#0d0d0d; --surface:#1a1a19; --ink:#ffffff; --ink2:#c3c2b7; --muted:#898781;
+    --grid:#2c2c2a; --axis:#383835; --border:rgba(255,255,255,.10); --wash:rgba(255,255,255,.05);
+    --c1:#3987e5; --c2:#d95926; --c3:#199e70;
+    --side-p:#9085e9; --side-a:#d55181;
+    --good-text:#0ca30c; --alert-bg:#3a1c1c;
+  }
+
+  *{box-sizing:border-box}
+  [hidden]{display:none!important}
+  body{margin:0;background:var(--page);color:var(--ink);
+    font-family:system-ui,-apple-system,"Segoe UI","Noto Sans Thai",sans-serif;font-size:15px;line-height:1.5}
+  .wrap{max-width:1200px;margin:0 auto;padding:0 16px}
+  .num{font-variant-numeric:tabular-nums}
+
+  header{padding:20px 0 14px;display:flex;flex-wrap:wrap;gap:12px 20px;align-items:center;justify-content:space-between}
+  h1{font-size:20px;margin:0;font-weight:650}
+  h1 small{display:block;font-size:13px;font-weight:400;color:var(--ink2)}
+  .controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+  button{font:inherit;font-size:14px;padding:7px 14px;border-radius:6px;border:1px solid var(--border);
+    background:var(--surface);color:var(--ink);cursor:pointer}
+  button:hover{background:var(--wash)}
+  button.primary{background:var(--ink);color:var(--page);border-color:var(--ink)}
+  button.primary:hover{opacity:.88}
+  button:disabled{opacity:.45;cursor:default}
+  .pill{font-size:13px;color:var(--ink2);display:inline-flex;align-items:center;gap:6px;padding:4px 10px;
+    border:1px solid var(--border);border-radius:999px;background:var(--surface)}
+  .pill i{width:8px;height:8px;border-radius:50%;background:var(--muted);display:inline-block}
+  .pill.on i{background:var(--good)}
+
+  .banner{border-radius:8px;padding:10px 14px;margin:0 0 14px;font-size:14.5px;display:flex;gap:10px;align-items:flex-start}
+  .banner.critical{background:var(--alert-bg);border:1px solid var(--critical)}
+  .banner.critical b{color:var(--critical)}
+  .banner.info{background:var(--surface);border:1px solid var(--border);color:var(--ink2)}
+  .banner .ico{font-weight:700;flex:none}
+
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px}
+  .sides{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+  .side-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:6px}
+  .side-name{font-weight:650;font-size:16px;display:flex;align-items:center;gap:8px}
+  .side-name .key{width:18px;height:3px;border-radius:2px;display:inline-block}
+  .badge{font-size:13px;padding:2px 10px;border-radius:999px;border:1px solid var(--border);color:var(--ink2);white-space:nowrap}
+  .badge.running{color:var(--ink);border-color:var(--ink2)}
+  .badge.running::before{content:"● ";animation:blink 1.2s infinite}
+  .badge.done{color:var(--good-text);border-color:var(--good)}
+  @keyframes blink{50%{opacity:.25}}
+  .hero{font-size:44px;font-weight:600;letter-spacing:-.01em;line-height:1.1;margin:4px 0 2px}
+  .hero-sub{font-size:13px;color:var(--ink2);margin-bottom:12px}
+  .remind{font-size:13px;color:var(--critical);margin-top:-6px;margin-bottom:10px}
+  .cells{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
+  .cell{border:1px solid var(--border);border-radius:8px;padding:8px 10px}
+  .cell .lab{font-size:12.5px;color:var(--ink2);display:flex;align-items:center;gap:6px}
+  .cell .lab .key{width:14px;height:2px;border-radius:2px;display:inline-block}
+  .cell .v{font-size:20px;font-weight:600}
+  .cell .d{font-size:12.5px;color:var(--muted)}
+  .facts{display:flex;gap:22px;flex-wrap:wrap;font-size:13.5px;color:var(--ink2)}
+  .facts b{color:var(--ink);font-weight:600;font-size:16px}
+
+  .result{margin-bottom:14px}
+  .result h2{font-size:15px;margin:0 0 6px;color:var(--ink2);font-weight:500}
+  .result .big{font-size:30px;font-weight:650}
+  .result .row{display:flex;gap:28px;flex-wrap:wrap;margin-top:6px;font-size:14px;color:var(--ink2)}
+  .result .row b{color:var(--ink);font-size:17px}
+
+  .charts{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+  .charts .wide{grid-column:1 / -1}
+  .chart-title{font-size:15px;font-weight:600;margin:0}
+  .chart-sub{font-size:12.5px;color:var(--ink2);margin:0 0 8px}
+  .legend{display:flex;flex-wrap:wrap;gap:14px;font-size:13px;color:var(--ink2);margin-bottom:4px}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .legend i{width:16px;height:2px;border-radius:2px;display:inline-block}
+  .legend i.dash{background:repeating-linear-gradient(90deg,var(--muted) 0 4px,transparent 4px 7px)!important;height:1.5px}
+  .chart{position:relative;width:100%}
+  .chart svg{display:block;width:100%;height:auto;overflow:visible}
+  .chart .empty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    color:var(--muted);font-size:13.5px;text-align:center;padding:0 20px}
+  .axis text{fill:var(--muted);font-size:11px;font-variant-numeric:tabular-nums}
+  .tip{position:absolute;pointer-events:none;background:var(--surface);border:1px solid var(--border);
+    border-radius:8px;padding:7px 10px;font-size:12.5px;box-shadow:0 4px 14px rgba(0,0,0,.12);
+    white-space:nowrap;z-index:5;display:none}
+  .tip .t{color:var(--muted);margin-bottom:3px}
+  .tip .r{display:flex;align-items:center;gap:7px}
+  .tip .r i{width:12px;height:2px;border-radius:2px;display:inline-block}
+  .tip .r b{font-variant-numeric:tabular-nums;font-weight:650;color:var(--ink)}
+  .tip .r span{color:var(--ink2)}
+
+  .bottom{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:30px}
+  .log{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:12.5px;max-height:260px;overflow:auto;
+    margin:0;padding:0;list-style:none}
+  .log li{padding:3px 0;border-bottom:1px solid var(--border);display:flex;gap:10px}
+  .log li .ts{color:var(--muted);flex:none;width:64px;text-align:right}
+  .log li.warn{color:var(--critical)}
+  .log li.done{color:var(--good-text)}
+  .tablewrap{max-height:260px;overflow:auto}
+  table{border-collapse:collapse;width:100%;font-size:12.5px;font-variant-numeric:tabular-nums}
+  th,td{padding:4px 6px;text-align:right;border-bottom:1px solid var(--border);white-space:nowrap}
+  th{color:var(--ink2);font-weight:500;position:sticky;top:0;background:var(--surface)}
+  h3{font-size:15px;margin:0 0 8px;font-weight:600}
+  .help{font-size:13px;color:var(--ink2);margin:0 0 30px}
+  .help code{font-size:12px;background:var(--wash);padding:1px 5px;border-radius:4px}
+
+  @media (max-width:820px){
+    .sides,.charts,.bottom{grid-template-columns:1fr}
+    .hero{font-size:36px}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Active vs Passive Balancing<small>แดชบอร์ดสด · Arduino Nano · 3S × 2 แพ็ค</small></h1>
+    <div class="controls">
+      <span class="pill" id="pill"><i></i><span id="pillText">ยังไม่เชื่อมต่อ</span></span>
+      <button class="primary" id="btnConnect">เชื่อมต่อ Arduino</button>
+      <button id="btnDemo">โหมดจำลอง</button>
+      <button id="btnClear">ล้างข้อมูล</button>
+      <button id="btnCsv">ดาวน์โหลด CSV</button>
+    </div>
+  </header>
+
+  <div class="banner info" id="noSerial" hidden>
+    <span class="ico">i</span>
+    <span>เบราว์เซอร์นี้ไม่รองรับ Web Serial — เปิดไฟล์นี้ด้วย Chrome หรือ Edge (ยังใช้โหมดจำลองได้)</span>
+  </div>
+  <div class="banner critical" id="alert" hidden>
+    <span class="ico">⚠</span>
+    <span><b>WARNING</b> · <span id="alertText"></span></span>
+  </div>
+
+  <section class="sides">
+    <div class="card" id="side-PASSIVE"></div>
+    <div class="card" id="side-ACTIVE"></div>
+  </section>
+
+  <section class="card result" id="result" hidden>
+    <h2>ผลการเปรียบเทียบ</h2>
+    <div class="big num" id="resultBig"></div>
+    <div class="row">
+      <span>Active <b class="num" id="resultA"></b></span>
+      <span>Passive <b class="num" id="resultP"></b></span>
+    </div>
+  </section>
+
+  <section class="charts">
+    <div class="card wide">
+      <p class="chart-title">Spread — ความต่างระหว่างเซลล์สูงสุดกับต่ำสุด</p>
+      <p class="chart-sub">ถือว่าบาลานซ์เสร็จเมื่อต่ำกว่าเส้นเกณฑ์ต่อเนื่อง 5 วินาที</p>
+      <div class="legend" id="lg-spread"></div>
+      <div class="chart" id="ch-spread"></div>
+    </div>
+    <div class="card">
+      <p class="chart-title">แรงดันรายเซลล์ · Passive</p>
+      <p class="chart-sub">โวลต์</p>
+      <div class="legend" id="lg-cellP"></div>
+      <div class="chart" id="ch-cellP"></div>
+    </div>
+    <div class="card">
+      <p class="chart-title">แรงดันรายเซลล์ · Active</p>
+      <p class="chart-sub">โวลต์</p>
+      <div class="legend" id="lg-cellA"></div>
+      <div class="chart" id="ch-cellA"></div>
+    </div>
+    <div class="card wide">
+      <p class="chart-title">อุณหภูมิ</p>
+      <p class="chart-sub">Passive ใช้ค่าที่ร้อนกว่าระหว่าง R1 กับ R2 · บัซเซอร์ดังเมื่อเกิน 60°C</p>
+      <div class="legend" id="lg-temp"></div>
+      <div class="chart" id="ch-temp"></div>
+    </div>
+  </section>
+
+  <section class="bottom">
+    <div class="card">
+      <h3>เหตุการณ์จาก Arduino</h3>
+      <ul class="log" id="log"></ul>
+    </div>
+    <div class="card">
+      <h3>ข้อมูลล่าสุด <span style="font-weight:400;color:var(--ink2);font-size:13px">(30 แถวสุดท้าย)</span></h3>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>เวลา</th><th>P1</th><th>P2</th><th>P3</th><th>P spread</th><th>A1</th><th>A2</th><th>A3</th><th>A spread</th><th>T P</th><th>T A</th></tr></thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <p class="help">
+    วิธีที่แนะนำ: รัน <code>python3 ~/balancing_demo/dashboard/bridge.py</code> แล้วเปิด <code>http://localhost:8080</code> — เชื่อมต่อเองอัตโนมัติ ·
+    ปิด Serial Monitor ใน VS Code ก่อน เพราะพอร์ตใช้ได้ทีละโปรแกรม ·
+    การเชื่อมต่อจะรีเซ็ต Nano หนึ่งครั้ง (เหมือนกดปุ่ม RESET) และแดชบอร์ดเริ่มรอบใหม่ให้อัตโนมัติ
+  </p>
+</div>
+
+<script>
+"use strict";
+
+// ---------- ค่าที่ตรงกับโค้ด Arduino ----------
+const DONE_SPREAD = 0.020;
+const T_WARN_HIGH = 60;
+const CSV_HEADER = "time_s,P1,P2,P3,P_spread,P_time,A1,A2,A3,A_spread,A_time,T_pass,T_act";
+
+// ---------- สถานะ ----------
+const SIDES = {
+  PASSIVE: { key: "P", label: "Passive", color: "--side-p" },
+  ACTIVE:  { key: "A", label: "Active",  color: "--side-a" },
+};
+let rows = [];
+let events = [];
+let sideState = { PASSIVE: "idle", ACTIVE: "idle" };
+let remindAt = { PASSIVE: -1, ACTIVE: -1 };
+let lastWarnWall = 0, lastWarnText = "";
+
+const $ = (id) => document.getElementById(id);
+const css = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+
+function fmtTime(sec) {
+  if (!isFinite(sec) || sec <= 0) return "0:00";
+  sec = Math.floor(sec);
+  const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60;
+  const pad = (n) => String(n).padStart(2, "0");
+  return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${m}:${pad(s)}`;
+}
+function fmtDur(sec) {
+  if (sec < 60) return `${sec.toFixed(1)} วินาที`;
+  const m = Math.floor(sec / 60), s = Math.round(sec % 60);
+  if (m < 60) return `${m} นาที ${s} วินาที`;
+  return `${Math.floor(m / 60)} ชม. ${m % 60} นาที`;
+}
+
+// ---------- รับข้อมูลทีละบรรทัด (ใช้ทั้ง serial จริงและโหมดจำลอง) ----------
+function newSession() {
+  rows = [];
+  events = [];
+  sideState = { PASSIVE: "idle", ACTIVE: "idle" };
+  remindAt = { PASSIVE: -1, ACTIVE: -1 };
+  lastWarnWall = 0;
+  $("log").textContent = "";
+  scheduleRender();
+}
+
+function handleLine(raw) {
+  const line = raw.replace(/\r$/, "").trim();
+  if (!line) return;
+  if (line.startsWith("time_s")) { newSession(); addEvent("เริ่มรอบใหม่ (Arduino บูต)"); return; }
+  if (line.startsWith(">>>")) { handleEvent(line.slice(3).trim()); return; }
+
+  const f = line.split(",");
+  if (f.length !== 13) return;
+  const n = f.map(Number);
+  if (n.some((x) => !isFinite(x))) return;
+  const row = {
+    t: n[0], P: [n[1], n[2], n[3]], Ps: n[4], Pt: n[5],
+    A: [n[6], n[7], n[8]], As: n[9], At: n[10], Tp: n[11], Ta: n[12],
+  };
+  // เผื่อเปิดแดชบอร์ดกลางรอบ — ถ้านาฬิกาเดินแต่ยังไม่เห็น START
+  const prev = rows[rows.length - 1];
+  if (prev) {
+    for (const name of ["PASSIVE", "ACTIVE"]) {
+      const k = SIDES[name].key + "t";
+      if (sideState[name] === "idle" && row[k] > prev[k]) sideState[name] = "running";
+    }
+  }
+  rows.push(row);
+  scheduleRender();
+}
+
+function handleEvent(msg) {
+  if (/^=+$/.test(msg)) return;
+  let cls = "";
+  let m;
+  if ((m = msg.match(/^START (PASSIVE|ACTIVE)/))) { sideState[m[1]] = "running"; remindAt[m[1]] = -1; }
+  else if ((m = msg.match(/^ABORT (PASSIVE|ACTIVE)/))) { sideState[m[1]] = "idle"; }
+  else if ((m = msg.match(/^DONE (PASSIVE|ACTIVE)/))) { sideState[m[1]] = "done"; cls = "done"; }
+  else if ((m = msg.match(/^REMIND\b.*(PASSIVE|ACTIVE)/))) { remindAt[m[1]] = Date.now(); cls = "warn"; }
+  else if (msg.startsWith("WARNING")) {
+    lastWarnWall = Date.now();
+    lastWarnText = msg.replace(/^WARNING\s*/, "");
+    cls = "warn";
+  }
+  addEvent(msg, cls);
+  scheduleRender();
+}
+
+function addEvent(text, cls = "") {
+  const t = rows.length ? rows[rows.length - 1].t : 0;
+  events.push({ t, text });
+  const li = document.createElement("li");
+  if (cls) li.className = cls;
+  const ts = document.createElement("span");
+  ts.className = "ts num";
+  ts.textContent = fmtTime(t);
+  const tx = document.createElement("span");
+  tx.textContent = text;              // ข้อความจาก serial — ใช้ textContent เสมอ
+  li.append(ts, tx);
+  const log = $("log");
+  log.prepend(li);
+  while (log.children.length > 200) log.lastChild.remove();
+}
+
+// ---------- การ์ดสองฝั่ง ----------
+function buildSideCard(name) {
+  const s = SIDES[name];
+  const el = $("side-" + name);
+  el.innerHTML = `
+    <div class="side-head">
+      <span class="side-name"><span class="key" style="background:var(${s.color})"></span>${s.label}</span>
+      <span class="badge" data-f="badge">รอเริ่ม</span>
+    </div>
+    <div class="hero num" data-f="timer">0:00</div>
+    <div class="hero-sub" data-f="timerSub">เวลาที่ใช้บาลานซ์</div>
+    <div class="remind" data-f="remind" hidden>⚠ บาลานซ์เสร็จแล้ว แต่สวิตช์ยังเปิดอยู่ — โยกปิดได้เลย</div>
+    <div class="cells">
+      ${[0, 1, 2].map((i) => `
+        <div class="cell">
+          <div class="lab"><span class="key" style="background:var(--c${i + 1})"></span>เซลล์ ${i + 1}</div>
+          <div class="v num" data-f="v${i}">—</div>
+          <div class="d num" data-f="d${i}">&nbsp;</div>
+        </div>`).join("")}
+    </div>
+    <div class="facts">
+      <span>spread<br><b class="num" data-f="spread">—</b> <span class="num">/ เป้า &lt; ${DONE_SPREAD.toFixed(3)} V</span></span>
+      <span>รวมทั้งแพ็ค<br><b class="num" data-f="pack">—</b></span>
+      <span>อุณหภูมิ<br><b class="num" data-f="temp">—</b></span>
+    </div>`;
+}
+
+function setF(el, f, text) { el.querySelector(`[data-f="${f}"]`).textContent = text; }
+
+function renderSide(name, last) {
+  const el = $("side-" + name);
+  const k = SIDES[name].key;
+  const st = sideState[name];
+  const badge = el.querySelector('[data-f="badge"]');
+  badge.className = "badge " + st;
+  badge.textContent = st === "running" ? "กำลังบาลานซ์" : st === "done" ? "✓ เสร็จแล้ว" : "รอเริ่ม";
+  el.querySelector('[data-f="remind"]').hidden = !(remindAt[name] > 0 && Date.now() - remindAt[name] < 15000);
+
+  if (!last) {
+    setF(el, "timer", "0:00");
+    for (let i = 0; i < 3; i++) { setF(el, "v" + i, "—"); setF(el, "d" + i, " "); }
+    setF(el, "spread", "—"); setF(el, "pack", "—"); setF(el, "temp", "—");
+    return;
+  }
+  const cells = last[k];
+  const mn = Math.min(...cells), mx = Math.max(...cells);
+  setF(el, "timer", fmtTime(last[k + "t"]));
+  setF(el, "timerSub", st === "done" ? `เสร็จใน ${fmtDur(last[k + "t"])}` : "เวลาที่ใช้บาลานซ์");
+  for (let i = 0; i < 3; i++) {
+    setF(el, "v" + i, cells[i].toFixed(3) + " V");
+    const d = cells[i] - mn;
+    setF(el, "d" + i, cells[i] === mx && mx > mn ? `สูงสุด · +${d.toFixed(3)}` : cells[i] === mn ? "ต่ำสุด" : `+${d.toFixed(3)}`);
+  }
+  setF(el, "spread", last[k + "s"].toFixed(3) + " V");
+  setF(el, "pack", (cells[0] + cells[1] + cells[2]).toFixed(2) + " V");
+  const T = name === "PASSIVE" ? last.Tp : last.Ta;
+  setF(el, "temp", T <= -100 ? "หลุด" : T.toFixed(1) + " °C");
+}
+
+// ---------- กราฟเส้น (SVG) พร้อม crosshair + tooltip ----------
+class LineChart {
+  constructor(id, opts) {
+    this.box = $(id);
+    this.legend = $(opts.legendId);
+    this.o = Object.assign({ height: 220, decimals: 3, unit: "", zeroBase: false }, opts);
+    this.data = [];
+    this.hoverX = null;
+    this.svgNS = "http://www.w3.org/2000/svg";
+
+    // legend
+    this.legend.textContent = "";
+    for (const s of this.o.series) {
+      const sp = document.createElement("span");
+      const i = document.createElement("i");
+      i.style.background = `var(${s.color})`;
+      sp.append(i, document.createTextNode(s.label));
+      this.legend.append(sp);
+    }
+    if (this.o.threshold) {
+      const sp = document.createElement("span");
+      const i = document.createElement("i"); i.className = "dash";
+      sp.append(i, document.createTextNode(this.o.threshold.label));
+      this.legend.append(sp);
+    }
+
+    this.tip = document.createElement("div");
+    this.tip.className = "tip";
+    this.box.append(this.tip);
+    this.empty = document.createElement("div");
+    this.empty.className = "empty";
+    this.empty.textContent = "ยังไม่มีข้อมูล — กด “เชื่อมต่อ Arduino” หรือ “โหมดจำลอง”";
+    this.box.append(this.empty);
+
+    this.box.addEventListener("pointermove", (e) => {
+      const r = this.box.getBoundingClientRect();
+      this.hoverX = (e.clientX - r.left) * (this.W / r.width);
+      this.drawHover();
+    });
+    this.box.addEventListener("pointerleave", () => { this.hoverX = null; this.drawHover(); });
+    new ResizeObserver(() => this.render(this.data)).observe(this.box);
+  }
+
+  render(data) {
+    this.data = data;
+    const W = this.W = Math.max(320, Math.round(this.box.clientWidth || 600));
+    const H = this.o.height;
+    const m = this.m = { l: 48, r: 92, t: 10, b: 26 };
+    const pw = W - m.l - m.r, ph = H - m.t - m.b;
+    this.empty.style.display = data.length < 2 ? "flex" : "none";
+
+    // ย่อจำนวนจุดให้เหลือราว 1 จุดต่อพิกเซล
+    const stride = Math.max(1, Math.ceil(data.length / pw));
+    const pts = [];
+    for (let i = 0; i < data.length; i += stride) pts.push(data[i]);
+    if (data.length && pts[pts.length - 1] !== data[data.length - 1]) pts.push(data[data.length - 1]);
+    this.pts = pts;
+
+    // ขอบเขตแกน
+    let t0 = pts.length ? pts[0].t : 0, t1 = pts.length ? pts[pts.length - 1].t : 60;
+    if (t1 - t0 < 60) t1 = t0 + 60;
+    let lo = Infinity, hi = -Infinity;
+    for (const p of pts) for (const s of this.o.series) {
+      const v = s.get(p); if (v == null || !isFinite(v)) continue;
+      if (v < lo) lo = v; if (v > hi) hi = v;
+    }
+    if (this.o.threshold) { hi = Math.max(hi, this.o.threshold.value); lo = Math.min(lo, this.o.threshold.value); }
+    if (!isFinite(lo)) { lo = this.o.defaultRange[0]; hi = this.o.defaultRange[1]; }
+    if (this.o.zeroBase) lo = 0;
+    if (hi - lo < this.o.minSpan) { const c = (hi + lo) / 2; lo = this.o.zeroBase ? 0 : c - this.o.minSpan / 2; hi = lo + this.o.minSpan; }
+    const yt = niceTicks(lo, hi, 5);
+    lo = Math.min(lo, yt[0]); hi = Math.max(hi, yt[yt.length - 1]);
+    const xt = timeTicks(t0, t1, Math.max(3, Math.floor(pw / 110)));
+
+    const X = this.X = (t) => m.l + ((t - t0) / (t1 - t0)) * pw;
+    const Y = this.Y = (v) => m.t + (1 - (v - lo) / (hi - lo)) * ph;
+
+    let g = "";
+    g += `<g class="axis">`;
+    for (const v of yt) {
+      const y = Y(v).toFixed(1);
+      g += `<line x1="${m.l}" x2="${W - m.r}" y1="${y}" y2="${y}" stroke="var(--grid)" stroke-width="1"/>`;
+      g += `<text x="${m.l - 8}" y="${+y + 3.5}" text-anchor="end">${v.toFixed(this.o.tickDecimals)}</text>`;
+    }
+    g += `<line x1="${m.l}" x2="${W - m.r}" y1="${m.t + ph}" y2="${m.t + ph}" stroke="var(--axis)" stroke-width="1"/>`;
+    for (const t of xt) {
+      const x = X(t).toFixed(1);
+      g += `<text x="${x}" y="${H - 6}" text-anchor="middle">${fmtTime(t)}</text>`;
+    }
+    g += `</g>`;
+
+    if (this.o.threshold) {
+      const y = Y(this.o.threshold.value).toFixed(1);
+      g += `<line x1="${m.l}" x2="${W - m.r}" y1="${y}" y2="${y}" stroke="var(--muted)" stroke-width="1.5" stroke-dasharray="5 4"/>`;
+    }
+
+    // เส้นข้อมูล + ป้ายท้ายเส้น
+    const ends = [];
+    for (const s of this.o.series) {
+      let d = "", pen = false;
+      for (const p of pts) {
+        const v = s.get(p);
+        if (v == null || !isFinite(v)) { pen = false; continue; }
+        d += (pen ? "L" : "M") + X(p.t).toFixed(1) + " " + Y(v).toFixed(1);
+        pen = true;
+      }
+      if (d) g += `<path d="${d}" fill="none" stroke="var(${s.color})" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`;
+      const lp = pts[pts.length - 1];
+      if (lp) { const v = s.get(lp); if (v != null && isFinite(v)) ends.push({ s, v, y: Y(v), x: X(lp.t) }); }
+    }
+    // กันป้ายท้ายเส้นทับกัน
+    ends.sort((a, b) => a.y - b.y);
+    for (let i = 1; i < ends.length; i++) if (ends[i].y - ends[i - 1].y < 14) ends[i].y = ends[i - 1].y + 14;
+    const over = ends.length ? ends[ends.length - 1].y - (m.t + ph) : 0;
+    if (over > 0) for (const e of ends) e.y -= over;
+    for (const e of ends) {
+      g += `<circle cx="${e.x.toFixed(1)}" cy="${Y(e.v).toFixed(1)}" r="4" fill="var(${e.s.color})" stroke="var(--surface)" stroke-width="2"/>`;
+      g += `<text x="${(W - m.r + 8)}" y="${(e.y + 4).toFixed(1)}" font-size="11.5" fill="var(--ink2)">` +
+           `<tspan fill="var(--ink)" font-weight="600">${e.v.toFixed(this.o.endDecimals ?? this.o.decimals)}</tspan> ${e.s.short}</text>`;
+    }
+
+    g += `<g class="hover"></g>`;
+    this.box.querySelector("svg")?.remove();
+    const svg = document.createElementNS(this.svgNS, "svg");
+    svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+    svg.setAttribute("role", "img");
+    svg.setAttribute("aria-label", this.o.aria);
+    svg.innerHTML = g;
+    this.box.prepend(svg);
+    this.drawHover();
+  }
+
+  drawHover() {
+    const svg = this.box.querySelector("svg");
+    if (!svg) return;
+    const hg = svg.querySelector(".hover");
+    hg.innerHTML = "";
+    const pts = this.pts || [];
+    if (this.hoverX == null || pts.length < 2) { this.tip.style.display = "none"; return; }
+
+    // หาจุดที่ใกล้ตำแหน่งเมาส์ที่สุด
+    let lo = 0, hi = pts.length - 1;
+    while (hi - lo > 1) { const mid = (lo + hi) >> 1; if (this.X(pts[mid].t) < this.hoverX) lo = mid; else hi = mid; }
+    const p = Math.abs(this.X(pts[lo].t) - this.hoverX) < Math.abs(this.X(pts[hi].t) - this.hoverX) ? pts[lo] : pts[hi];
+    const x = this.X(p.t);
+    let s = `<line x1="${x}" x2="${x}" y1="${this.m.t}" y2="${this.o.height - this.m.b}" stroke="var(--muted)" stroke-width="1"/>`;
+    for (const se of this.o.series) {
+      const v = se.get(p); if (v == null || !isFinite(v)) continue;
+      s += `<circle cx="${x}" cy="${this.Y(v)}" r="4.5" fill="var(${se.color})" stroke="var(--surface)" stroke-width="2"/>`;
+    }
+    hg.innerHTML = s;
+
+    this.tip.textContent = "";
+    const t = document.createElement("div"); t.className = "t"; t.textContent = "เวลา " + fmtTime(p.t);
+    this.tip.append(t);
+    for (const se of this.o.series) {
+      const v = se.get(p);
+      const r = document.createElement("div"); r.className = "r";
+      const i = document.createElement("i"); i.style.background = `var(${se.color})`;
+      const b = document.createElement("b"); b.textContent = (v == null || !isFinite(v)) ? "—" : v.toFixed(this.o.decimals) + " " + this.o.unit;
+      const sp = document.createElement("span"); sp.textContent = se.label;
+      r.append(i, b, sp);
+      this.tip.append(r);
+    }
+    this.tip.style.display = "block";
+    const scale = this.box.clientWidth / this.W;
+    const px = x * scale;
+    const tw = this.tip.offsetWidth;
+    this.tip.style.left = (px + 14 + tw > this.box.clientWidth ? px - 14 - tw : px + 14) + "px";
+    this.tip.style.top = "8px";
+  }
+}
+
+function niceTicks(lo, hi, n) {
+  const span = hi - lo || 1;
+  const raw = span / n;
+  const mag = Math.pow(10, Math.floor(Math.log10(raw)));
+  const step = [1, 2, 2.5, 5, 10].map((k) => k * mag).find((s) => span / s <= n) || 10 * mag;
+  const out = [];
+  for (let v = Math.floor(lo / step) * step; v <= hi + step * 0.5; v += step) out.push(+v.toFixed(6));
+  return out;
+}
+function timeTicks(t0, t1, n) {
+  const steps = [10, 15, 30, 60, 120, 300, 600, 900, 1800, 3600, 7200];
+  const step = steps.find((s) => (t1 - t0) / s <= n) || 7200;
+  const out = [];
+  for (let t = Math.ceil(t0 / step) * step; t <= t1; t += step) out.push(t);
+  return out;
+}
+
+// ---------- สร้างกราฟ ----------
+const tempOrNull = (v) => (v <= -100 ? null : v);
+const charts = [
+  new LineChart("ch-spread", {
+    legendId: "lg-spread", aria: "กราฟ spread ของทั้งสองฝั่งเทียบกับเวลา", unit: "V",
+    decimals: 3, tickDecimals: 3, zeroBase: true, minSpan: 0.05, defaultRange: [0, 0.2], height: 240,
+    threshold: { value: DONE_SPREAD, label: `เกณฑ์ ${DONE_SPREAD.toFixed(3)} V` },
+    series: [
+      { label: "Passive", short: "Passive", color: "--side-p", get: (r) => r.Ps },
+      { label: "Active",  short: "Active",  color: "--side-a", get: (r) => r.As },
+    ],
+  }),
+  new LineChart("ch-cellP", {
+    legendId: "lg-cellP", aria: "แรงดันรายเซลล์ฝั่ง Passive", unit: "V",
+    decimals: 3, tickDecimals: 2, minSpan: 0.1, defaultRange: [3.7, 4.2],
+    series: [0, 1, 2].map((i) => ({ label: `เซลล์ ${i + 1}`, short: `C${i + 1}`, color: `--c${i + 1}`, get: (r) => r.P[i] })),
+  }),
+  new LineChart("ch-cellA", {
+    legendId: "lg-cellA", aria: "แรงดันรายเซลล์ฝั่ง Active", unit: "V",
+    decimals: 3, tickDecimals: 2, minSpan: 0.1, defaultRange: [3.7, 4.2],
+    series: [0, 1, 2].map((i) => ({ label: `เซลล์ ${i + 1}`, short: `C${i + 1}`, color: `--c${i + 1}`, get: (r) => r.A[i] })),
+  }),
+  new LineChart("ch-temp", {
+    legendId: "lg-temp", aria: "อุณหภูมิทั้งสองฝั่งเทียบกับเวลา", unit: "°C",
+    decimals: 1, tickDecimals: 0, endDecimals: 1, minSpan: 10, defaultRange: [20, 40], height: 200,
+    series: [
+      { label: "Passive (R1/R2)", short: "Passive", color: "--side-p", get: (r) => tempOrNull(r.Tp) },
+      { label: "Active (บอร์ด)",  short: "Active",  color: "--side-a", get: (r) => tempOrNull(r.Ta) },
+    ],
+  }),
+];
+
+// ---------- วาดหน้าจอ (รวบเป็นรอบละไม่เกิน ~4 ครั้งต่อวินาที) ----------
+let renderPending = false, lastRender = 0;
+function scheduleRender() {
+  if (renderPending) return;
+  renderPending = true;
+  const wait = Math.max(0, 250 - (performance.now() - lastRender));
+  setTimeout(() => requestAnimationFrame(() => { renderPending = false; lastRender = performance.now(); renderAll(); }), wait);
+}
+
+function renderAll() {
+  const last = rows[rows.length - 1];
+  renderSide("PASSIVE", last);
+  renderSide("ACTIVE", last);
+  for (const c of charts) c.render(rows);
+
+  // แถบเตือน — Arduino ส่ง WARNING ซ้ำทุก 10 วินาทีตราบที่ยังผิดปกติ
+  const warnOn = lastWarnWall && Date.now() - lastWarnWall < 13000;
+  $("alert").hidden = !warnOn;
+  if (warnOn) $("alertText").textContent = lastWarnText;
+
+  // ผลเปรียบเทียบ
+  const both = last && sideState.PASSIVE === "done" && sideState.ACTIVE === "done";
+  $("result").hidden = !both;
+  if (both) {
+    $("resultA").textContent = fmtDur(last.At);
+    $("resultP").textContent = fmtDur(last.Pt);
+    $("resultBig").textContent = last.At > 0
+      ? `Passive ใช้เวลาเป็น ${(last.Pt / last.At).toFixed(1)} เท่าของ Active`
+      : "เสร็จทั้งสองฝั่ง";
+  }
+
+  // ตาราง 30 แถวล่าสุด
+  const tb = $("tbody");
+  tb.textContent = "";
+  for (const r of rows.slice(-30).reverse()) {
+    const tr = document.createElement("tr");
+    const cells = [fmtTime(r.t), ...r.P.map((v) => v.toFixed(3)), r.Ps.toFixed(3),
+                   ...r.A.map((v) => v.toFixed(3)), r.As.toFixed(3), r.Tp.toFixed(1), r.Ta.toFixed(1)];
+    for (const c of cells) { const td = document.createElement("td"); td.textContent = c; tr.append(td); }
+    tb.append(tr);
+  }
+}
+// ให้ป้ายเตือนหายเองเมื่อไม่มี WARNING ซ้ำ แม้ไม่มีข้อมูลใหม่เข้ามา
+setInterval(scheduleRender, 2000);
+
+// ---------- Web Serial ----------
+let port = null, reader = null, readDone = null;
+
+function setPill(on, text) { $("pill").classList.toggle("on", on); $("pillText").textContent = text; }
+
+// ---------- โหมด bridge — bridge.py อ่าน serial แทน Chrome แล้วส่งมาทาง Server-Sent Events ----------
+let es = null, bridgeMode = false, lastBridgeNote = "";
+
+async function detectBridge() {
+  if (location.protocol === "file:") return;
+  try {
+    const r = await fetch("/bridge", { cache: "no-store" });
+    if (!r.ok) return;
+    await r.json();
+  } catch { return; }
+  bridgeMode = true;
+  $("noSerial").hidden = true;
+  $("btnConnect").disabled = false;
+  connectBridge();
+}
+
+function connectBridge() {
+  stopDemo();
+  newSession();
+  lastBridgeNote = "";
+  es = new EventSource("/stream");
+  es.addEventListener("line", (e) => handleLine(e.data));
+  es.addEventListener("status", (e) => {
+    const s = JSON.parse(e.data);
+    setPill(s.connected, s.connected ? `เชื่อมต่อแล้ว · ${String(s.port).replace("/dev/", "")}` : (s.note || "รอ Nano"));
+    if (s.note && s.note !== lastBridgeNote) addEvent("[bridge] " + s.note, s.connected ? "" : "warn");
+    lastBridgeNote = s.note || "";
+  });
+  es.onerror = () => setPill(false, "bridge ไม่ตอบ — รัน bridge.py ใหม่");
+  $("btnConnect").textContent = "ตัดการเชื่อมต่อ";
+}
+
+function disconnectBridge() {
+  es?.close();
+  es = null;
+  setPill(false, "ยังไม่เชื่อมต่อ");
+  $("btnConnect").textContent = "เชื่อมต่อ Arduino";
+}
+
+async function connect() {
+  if (bridgeMode) { es ? disconnectBridge() : connectBridge(); return; }
+  if (port) { await disconnect(); return; }
+  stopDemo();
+  addEvent("[เชื่อมต่อ] กำลังเปิดหน้าต่างเลือกพอร์ต…");
+  try {
+    port = await navigator.serial.requestPort();
+  } catch (e) {
+    port = null;
+    addEvent(e.name === "NotFoundError"
+      ? "[เชื่อมต่อ] ไม่ได้เลือกพอร์ต — ต้องคลิกเลือก USB Serial แล้วกดปุ่ม “เชื่อมต่อ” ในหน้าต่างนั้น"
+      : `[เชื่อมต่อ] เลือกพอร์ตไม่ได้: ${e.name}: ${e.message}`, "warn");
+    return;
+  }
+  const info = port.getInfo();
+  addEvent(`[เชื่อมต่อ] เลือกพอร์ตแล้ว (VID ${info.usbVendorId?.toString(16) ?? "?"} PID ${info.usbProductId?.toString(16) ?? "?"}) กำลังเปิดที่ 9600…`);
+  try {
+    await port.open({ baudRate: 9600 });
+  } catch (e) {
+    addEvent(`[เชื่อมต่อ] เปิดพอร์ตไม่ได้: ${e.name}: ${e.message}`, "warn");
+    addEvent("[เชื่อมต่อ] ถ้าพอร์ตถูกใช้อยู่ ให้ปิด Serial Monitor ใน VS Code หรือแท็บแดชบอร์ดอื่น แล้วถอดเสียบ USB ใหม่", "warn");
+    port = null;
+    return;
+  }
+  addEvent("[เชื่อมต่อ] เปิดพอร์ตสำเร็จ รอข้อมูลจาก Nano…", "done");
+  setPill(true, "เชื่อมต่อแล้ว");
+  $("btnConnect").textContent = "ตัดการเชื่อมต่อ";
+  readLoop();
+}
+
+async function readLoop() {
+  const decoder = new TextDecoderStream();
+  readDone = port.readable.pipeTo(decoder.writable).catch(() => {});
+  reader = decoder.readable.getReader();
+  let buf = "";
+  const startRows = rows.length;
+  setTimeout(() => {
+    if (port && rows.length === startRows) addEvent("[เชื่อมต่อ] เปิดพอร์ตได้แต่ 6 วินาทียังไม่มีข้อมูล — กดปุ่ม RESET บน Nano หรือเช็กว่าเลือกพอร์ตถูกตัว", "warn");
+  }, 6000);
+  try {
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buf += value;
+      let i;
+      while ((i = buf.indexOf("\n")) >= 0) { handleLine(buf.slice(0, i)); buf = buf.slice(i + 1); }
+    }
+  } catch (e) {
+    addEvent("การเชื่อมต่อขาด: " + e.message, "warn");
+  }
+  await cleanupPort();
+}
+
+async function disconnect() {
+  try { await reader?.cancel(); } catch {}
+}
+async function cleanupPort() {
+  try { reader?.releaseLock(); } catch {}
+  try { await readDone; } catch {}
+  try { await port?.close(); } catch {}
+  port = null; reader = null;
+  setPill(false, "ยังไม่เชื่อมต่อ");
+  $("btnConnect").textContent = "เชื่อมต่อ Arduino";
+}
+
+if ("serial" in navigator) {
+  navigator.serial.addEventListener("disconnect", (e) => { if (e.target === port) addEvent("สาย USB หลุด", "warn"); });
+} else {
+  $("noSerial").hidden = false;
+  $("btnConnect").disabled = true;
+}
+
+// ---------- โหมดจำลอง — ส่งข้อความรูปแบบเดียวกับ Arduino เร็วขึ้น 10 เท่า ----------
+let demoTimer = null;
+function startDemo() {
+  if (demoTimer) { stopDemo(); return; }
+  if (port) return;
+  if (es) disconnectBridge();
+  const sim = {
+    t: 0,
+    P: [4.080, 3.960, 3.965], A: [3.920, 4.100, 3.960],
+    Tp: 27.5, Ta: 27.8,
+    side: {
+      PASSIVE: { running: false, finished: false, start: 0, below: -1, fin: 0, off: false },
+      ACTIVE:  { running: false, finished: false, start: 0, below: -1, fin: 0, off: false },
+    },
+    reported: false,
+  };
+  const noise = () => (Math.random() - 0.5) * 0.003;
+  const spread = (c) => Math.max(...c) - Math.min(...c);
+  const emit = (s) => handleLine(s);
+
+  emit(CSV_HEADER);
+  emit(">>> พบเซนเซอร์ 3 ตัว");
+  setPill(true, "โหมดจำลอง ×10");
+  $("btnDemo").textContent = "หยุดจำลอง";
+
+  demoTimer = setInterval(() => {
+    sim.t += 1;
+    const t = sim.t;
+    for (const name of ["PASSIVE", "ACTIVE"]) {
+      const s = sim.side[name];
+      if (t === 3 && !s.running && !s.finished) { s.running = true; s.start = t; emit(`>>> START ${name}`); }
+    }
+    const pOn = sim.side.PASSIVE.running || (sim.side.PASSIVE.finished && !sim.side.PASSIVE.off);
+    const aOn = sim.side.ACTIVE.running || (sim.side.ACTIVE.finished && !sim.side.ACTIVE.off);
+
+    // Passive: bleed เฉพาะเซลล์ 1 (SW1) ราว 0.1 mV ต่อวินาที
+    if (pOn) sim.P[0] -= 0.0001;
+    // Active: ย้ายพลังงานให้ทุกเซลล์เข้าหาค่าเฉลี่ย
+    if (aOn) {
+      const mean = (sim.A[0] + sim.A[1] + sim.A[2]) / 3;
+      for (let i = 0; i < 3; i++) sim.A[i] += (mean - sim.A[i]) / 75;
+    }
+    sim.Tp += ((pOn ? 46 : 27.5) - sim.Tp) / 220;
+    sim.Ta += ((aOn ? 36 : 27.8) - sim.Ta) / 120;
+
+    const P = sim.P.map((v) => v + noise()), A = sim.A.map((v) => v + noise());
+    const cur = { PASSIVE: spread(P), ACTIVE: spread(A) };
+
+    for (const name of ["PASSIVE", "ACTIVE"]) {
+      const s = sim.side[name];
+      if (s.running) {
+        if (cur[name] < DONE_SPREAD) {
+          if (s.below < 0) s.below = t;
+          if (t - s.below >= 5) {
+            s.running = false; s.finished = true; s.fin = s.below - s.start;
+            emit(`>>> DONE ${name}  เวลาที่ใช้ ${s.fin.toFixed(1)} วินาที — ปิดสวิตช์ได้`);
+          }
+        } else s.below = -1;
+      }
+      if (s.finished && !s.off && t - s.start - s.fin > 18) s.off = true;  // ผู้สาธิตปิดสวิตช์
+    }
+    if (!sim.reported && sim.side.PASSIVE.finished && sim.side.ACTIVE.finished) {
+      sim.reported = true;
+      const a = sim.side.ACTIVE.fin, p = sim.side.PASSIVE.fin;
+      emit(">>> ================================");
+      emit(`>>> ACTIVE  ใช้เวลา ${a.toFixed(1)} วินาที`);
+      emit(`>>> PASSIVE ใช้เวลา ${p.toFixed(1)} วินาที`);
+      emit(`>>> PASSIVE ใช้เวลาเป็น ${(p / a).toFixed(1)} เท่าของ ACTIVE`);
+      emit(">>> ================================");
+    }
+
+    const shown = (s) => (s.finished ? s.fin : s.running ? t - s.start : 0);
+    const f3 = (v) => v.toFixed(3);
+    emit([t.toFixed(1), ...P.map(f3), f3(cur.PASSIVE), shown(sim.side.PASSIVE).toFixed(1),
+          ...A.map(f3), f3(cur.ACTIVE), shown(sim.side.ACTIVE).toFixed(1),
+          sim.Tp.toFixed(1), sim.Ta.toFixed(1)].join(","));
+  }, 100);
+}
+function stopDemo() {
+  if (!demoTimer) return;
+  clearInterval(demoTimer);
+  demoTimer = null;
+  setPill(false, "ยังไม่เชื่อมต่อ");
+  $("btnDemo").textContent = "โหมดจำลอง";
+}
+
+// ---------- ดาวน์โหลด CSV ----------
+function downloadCsv() {
+  if (!rows.length) { alert("ยังไม่มีข้อมูล"); return; }
+  const lines = [CSV_HEADER];
+  for (const r of rows) {
+    lines.push([r.t.toFixed(1), ...r.P.map((v) => v.toFixed(3)), r.Ps.toFixed(3), r.Pt.toFixed(1),
+                ...r.A.map((v) => v.toFixed(3)), r.As.toFixed(3), r.At.toFixed(1),
+                r.Tp.toFixed(1), r.Ta.toFixed(1)].join(","));
+  }
+  const d = new Date(), pad = (n) => String(n).padStart(2, "0");
+  const name = `balancing_${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}.csv`;
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([lines.join("\n") + "\n"], { type: "text/csv" }));
+  a.download = name;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+// ---------- ปุ่ม ----------
+buildSideCard("PASSIVE");
+buildSideCard("ACTIVE");
+$("btnConnect").onclick = connect;
+$("btnDemo").onclick = startDemo;
+$("btnClear").onclick = () => { if (!rows.length || confirm("ล้างข้อมูลทั้งหมดบนหน้าจอ?")) newSession(); };
+$("btnCsv").onclick = downloadCsv;
+renderAll();
+detectBridge();
+</script>
+</body>
+</html>
