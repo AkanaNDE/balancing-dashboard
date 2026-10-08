@@ -729,7 +729,7 @@ async function runPort() {
       addEvent("[เชื่อมต่อ] ถ้าพอร์ตถูกใช้อยู่ ให้ปิด Serial Monitor ใน VS Code หรือแท็บแดชบอร์ดอื่น แล้วถอดเสียบ USB ใหม่", "warn");
       break;
     }
-    addEvent("[เชื่อมต่อ] เปิดพอร์ตสำเร็จ รอข้อมูลจาก Nano…", "done");
+    addEvent(retries === 0 ? "[เชื่อมต่อ] เปิดพอร์ตสำเร็จ รอข้อมูลจาก Nano…" : "[เชื่อมต่อ] ต่อใหม่สำเร็จ", retries === 0 ? "done" : "");
     setPill(true, "เชื่อมต่อแล้ว");
     $("btnConnect").textContent = "ตัดการเชื่อมต่อ";
 
@@ -745,9 +745,9 @@ async function runPort() {
       addEvent("[เชื่อมต่อ] เบราว์เซอร์นี้อ่านพอร์ตของเครื่องนี้ไม่ได้ — ลองเครื่อง/เบราว์เซอร์อื่น หรือรัน bridge.py (ดูคำอธิบายด้านล่างหน้า)", "warn");
       break;
     }
-    addEvent(`[เชื่อมต่อ] การเชื่อมต่อขาด: ${err} — ต่อใหม่ครั้งที่ ${retries}/${MAX_RETRIES}`, "warn");
+    addEvent(`[เชื่อมต่อ] หลุดชั่วคราว (${err}) — กำลังต่อใหม่ ${retries}/${MAX_RETRIES}`);
     setPill(false, "กำลังต่อใหม่…");
-    await new Promise((r) => setTimeout(r, 700 * retries));
+    await new Promise((r) => setTimeout(r, 1500 * retries));
   }
   port = null; reader = null;
   setPill(false, "ยังไม่เชื่อมต่อ");
